@@ -12,6 +12,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overflow: hidden;
         }
+
         #game-wrapper {
             position: relative;
             display: flex; flex-direction: column; align-items: center; gap: 12px;
@@ -23,20 +24,22 @@
         }
         #top-bar .score-label { color: #aaa; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
         #top-bar .score-value { color: #fff; font-size: 28px; font-weight: 700; }
-        #top-bar .next-preview {
-            display: flex; align-items: center; gap: 8px; color: #aaa; font-size: 13px;
-        }
+        #top-bar .next-preview { display: flex; align-items: center; gap: 8px; color: #aaa; font-size: 13px; }
         #next-fruit-display {
             width: 36px; height: 36px; border-radius: 50%;
             border: 2px solid rgba(255,255,255,0.2);
             display: flex; align-items: center; justify-content: center; font-size: 20px;
         }
+
+        #main-area { display: flex; gap: 14px; align-items: flex-start; }
+
         #game-container {
             position: relative; width: 410px; height: 610px;
             border-radius: 0 0 16px 16px; overflow: hidden;
             box-shadow: 0 20px 60px rgba(0,0,0,0.5);
         }
         #game-container canvas { display: block; }
+
         #drop-line {
             position: absolute; top: 0; left: 0; width: 100%;
             height: 80px; pointer-events: none;
@@ -44,13 +47,20 @@
             background: linear-gradient(to bottom, rgba(255,100,100,0.08), transparent);
         }
         #preview-ball {
-            position: absolute; top: 10px; border-radius: 50%;
+            position: absolute; border-radius: 50%;
             pointer-events: none; z-index: 10;
-            transition: left 0.05s ease-out;
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             opacity: 0.85;
+            will-change: transform;
+            transition: none;
         }
+        #drop-guide {
+            position: absolute; width: 2px; pointer-events: none; z-index: 9;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.25), rgba(255,255,255,0.03));
+            will-change: transform;
+        }
+
         #cooldown-bar {
             position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
             width: 120px; height: 4px; background: rgba(255,255,255,0.15);
@@ -59,8 +69,9 @@
         }
         #cooldown-fill {
             height: 100%; width: 0%; background: linear-gradient(90deg, #ff6b6b, #ffd93d);
-            border-radius: 2px; transition: width 0.05s linear;
+            border-radius: 2px;
         }
+
         #game-over-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.75); backdrop-filter: blur(5px);
@@ -70,7 +81,8 @@
         }
         #game-over-overlay.active { display: flex; }
         #game-over-overlay h2 {
-            color: #ff6b6b; font-size: 42px; margin-bottom: 8px; text-shadow: 0 2px 10px rgba(255,100,100,0.5);
+            color: #ff6b6b; font-size: 42px; margin-bottom: 8px;
+            text-shadow: 0 2px 10px rgba(255,100,100,0.5);
         }
         #game-over-overlay .final-score { color: #ffd93d; font-size: 24px; margin-bottom: 24px; }
         #game-over-overlay button {
@@ -83,22 +95,57 @@
         #game-over-overlay button:hover {
             transform: scale(1.05); box-shadow: 0 6px 20px rgba(238,90,36,0.6);
         }
-        #merge-flash {
-            position: absolute; border-radius: 50%; pointer-events: none;
-            background: radial-gradient(circle, rgba(255,255,255,0.6), transparent 70%);
-            transform: scale(0); z-index: 5;
+
+        /* Evolution panel */
+        #evolution-panel {
+            width: 72px;
+            background: rgba(255,255,255,0.07);
+            border-radius: 14px;
+            padding: 10px 8px;
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
-        #legend {
-            width: 400px; display: flex; justify-content: center; flex-wrap: wrap; gap: 6px;
-            padding: 8px; background: rgba(255,255,255,0.05); border-radius: 10px;
+        #evolution-panel .evo-title {
+            color: #aaa; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px;
+            margin-bottom: 6px; font-weight: 600;
         }
-        .legend-item {
-            display: flex; align-items: center; gap: 4px;
-            color: #ccc; font-size: 11px;
+        .evo-item {
+            display: flex; flex-direction: column; align-items: center;
+            position: relative;
         }
-        .legend-dot {
-            width: 14px; height: 14px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; font-size: 10px;
+        .evo-ball {
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: default;
+        }
+        .evo-ball:hover { transform: scale(1.2); box-shadow: 0 4px 14px rgba(0,0,0,0.4); }
+        .evo-arrow {
+            color: rgba(255,255,255,0.2); font-size: 10px; line-height: 1;
+            margin: 1px 0;
+        }
+        .evo-label {
+            display: none; position: absolute; left: 62px; top: 50%; transform: translateY(-50%);
+            background: rgba(0,0,0,0.85); color: #fff; font-size: 11px;
+            padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+            pointer-events: none; z-index: 200;
+        }
+        .evo-item:hover .evo-label { display: block; }
+
+        @keyframes flashAnim {
+            0%   { transform: scale(0); opacity: 1; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+        @keyframes shockwaveAnim {
+            0%   { transform: scale(0.3); opacity: 0.7; border-width: 4px; }
+            100% { transform: scale(3); opacity: 0; border-width: 1px; }
+        }
+        @keyframes popIn {
+            0%   { transform: scale(0); }
+            60%  { transform: scale(1.15); }
+            100% { transform: scale(1); }
         }
     </style>
 </head>
@@ -116,18 +163,23 @@
         </div>
     </div>
 
-    <div id="game-container">
-        <div id="drop-line"></div>
-        <div id="preview-ball"></div>
-        <div id="cooldown-bar"><div id="cooldown-fill"></div></div>
-        <div id="game-over-overlay">
-            <h2>GAME OVER</h2>
-            <div class="final-score">Score: <span id="final-score">0</span></div>
-            <button id="restart-btn">Play Again</button>
+    <div id="main-area">
+        <div id="game-container">
+            <div id="drop-line"></div>
+            <div id="preview-ball"></div>
+            <div id="drop-guide"></div>
+            <div id="cooldown-bar"><div id="cooldown-fill"></div></div>
+            <div id="game-over-overlay">
+                <h2>GAME OVER</h2>
+                <div class="final-score">Score: <span id="final-score">0</span></div>
+                <button id="restart-btn">Play Again</button>
+            </div>
+        </div>
+
+        <div id="evolution-panel">
+            <div class="evo-title">Evolution</div>
         </div>
     </div>
-
-    <div id="legend" id="fruit-legend"></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
@@ -152,6 +204,9 @@ const WALL_THICKNESS = 10;
 const DROP_COOLDOWN = 1000;
 const GAME_OVER_THRESHOLD = 3000;
 const RANDOM_POOL_SIZE = 3;
+const LERP_SPEED = 0.15;
+const SHOCKWAVE_RADIUS = 120;
+const SHOCKWAVE_FORCE = 0.035;
 
 const { Engine, Render, Runner, Bodies, Body, Composite, Events, World, Vector } = Matter;
 
@@ -161,28 +216,59 @@ let canDrop = true;
 let cooldownTimer = null;
 let gameOver = false;
 let mouseX = CANVAS_W / 2;
+let displayX = CANVAS_W / 2;
 let currentFruitIndex = getRandomFruitIndex();
 let nextFruitIndex = getRandomFruitIndex();
 let dangerTimers = {};
+let animFrameId = null;
 
 const scoreDisplay = document.getElementById("score-display");
 const previewBall = document.getElementById("preview-ball");
+const dropGuide = document.getElementById("drop-guide");
 const cooldownBar = document.getElementById("cooldown-bar");
 const cooldownFill = document.getElementById("cooldown-fill");
 const nextFruitDisplay = document.getElementById("next-fruit-display");
 const gameOverOverlay = document.getElementById("game-over-overlay");
 const finalScoreEl = document.getElementById("final-score");
 const restartBtn = document.getElementById("restart-btn");
+const gameContainer = document.getElementById("game-container");
 
 function getRandomFruitIndex() {
     return Math.floor(Math.random() * RANDOM_POOL_SIZE);
 }
 
-function buildLegend() {
-    const legend = document.getElementById("legend");
-    legend.innerHTML = FRUITS.map(f =>
-        `<div class="legend-item"><span class="legend-dot" style="background:${f.color}">${f.emoji}</span>${f.label}</div>`
-    ).join("");
+function buildEvolutionPanel() {
+    const panel = document.getElementById("evolution-panel");
+    const minDisplay = 12, maxDisplay = 28;
+
+    FRUITS.forEach((f, i) => {
+        const item = document.createElement("div");
+        item.className = "evo-item";
+
+        const size = Math.round(minDisplay + (maxDisplay - minDisplay) * (i / (FRUITS.length - 1)));
+        const ball = document.createElement("div");
+        ball.className = "evo-ball";
+        ball.style.width = size + "px";
+        ball.style.height = size + "px";
+        ball.style.background = f.color;
+        ball.style.fontSize = (size * 0.65) + "px";
+        ball.textContent = f.emoji;
+
+        const label = document.createElement("div");
+        label.className = "evo-label";
+        label.textContent = f.label.charAt(0).toUpperCase() + f.label.slice(1) + ` (+${f.points})`;
+
+        item.appendChild(ball);
+        item.appendChild(label);
+        panel.appendChild(item);
+
+        if (i < FRUITS.length - 1) {
+            const arrow = document.createElement("div");
+            arrow.className = "evo-arrow";
+            arrow.textContent = "\u25bc";
+            panel.appendChild(arrow);
+        }
+    });
 }
 
 function initGame() {
@@ -191,43 +277,59 @@ function initGame() {
     scoreDisplay.textContent = "0";
     gameOverOverlay.classList.remove("active");
 
-    if (engine) { Engine.clear(engine); }
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+    if (engine) Engine.clear(engine);
     if (render) { Render.stop(render); render.canvas.remove(); }
-    if (runner) { Runner.stop(runner); }
+    if (runner) Runner.stop(runner);
 
-    engine = Engine.create();
-    render = Render.create({
-        element: document.getElementById("game-container"),
-        engine,
-        options: { width: CANVAS_W, height: CANVAS_H, wireframes: false, background: "#fdf6e3" }
+    engine = Engine.create({
+        positionIterations: 10,
+        velocityIterations: 10,
+        constraintIterations: 4,
     });
 
-    const ground   = Bodies.rectangle(CANVAS_W/2, CANVAS_H - 5, CANVAS_W, WALL_THICKNESS, { isStatic: true, render: { fillStyle: "#555" }, label: "wall" });
-    const leftWall = Bodies.rectangle(5, CANVAS_H/2, WALL_THICKNESS, CANVAS_H,             { isStatic: true, render: { fillStyle: "#555" }, label: "wall" });
-    const rightWall= Bodies.rectangle(CANVAS_W - 5, CANVAS_H/2, WALL_THICKNESS, CANVAS_H,  { isStatic: true, render: { fillStyle: "#555" }, label: "wall" });
+    render = Render.create({
+        element: gameContainer,
+        engine,
+        options: {
+            width: CANVAS_W, height: CANVAS_H,
+            wireframes: false, background: "#fdf6e3",
+            pixelRatio: window.devicePixelRatio || 1,
+        }
+    });
+
+    const ground    = Bodies.rectangle(CANVAS_W/2, CANVAS_H - 5, CANVAS_W, WALL_THICKNESS, { isStatic: true, render: { fillStyle: "#555" }, label: "wall" });
+    const leftWall  = Bodies.rectangle(5, CANVAS_H/2, WALL_THICKNESS, CANVAS_H,             { isStatic: true, render: { fillStyle: "#555" }, label: "wall" });
+    const rightWall = Bodies.rectangle(CANVAS_W - 5, CANVAS_H/2, WALL_THICKNESS, CANVAS_H,  { isStatic: true, render: { fillStyle: "#555" }, label: "wall" });
     Composite.add(engine.world, [ground, leftWall, rightWall]);
 
     currentFruitIndex = getRandomFruitIndex();
     nextFruitIndex = getRandomFruitIndex();
-    updatePreview();
+    displayX = CANVAS_W / 2;
+    mouseX = CANVAS_W / 2;
+    updatePreviewImmediate();
     updateNextDisplay();
 
     Events.on(engine, "collisionStart", onCollision);
     Events.on(engine, "afterUpdate", checkGameOver);
 
     Render.run(render);
-    runner = Runner.create();
+    runner = Runner.create({ delta: 1000 / 60, isFixed: true });
     Runner.run(runner, engine);
+
+    startPreviewLoop();
 }
 
 function spawnFruit(x, y, index) {
     const f = FRUITS[index];
     const body = Bodies.circle(x, y, f.radius, {
         label: f.label,
-        restitution: 0.2,
-        friction: 0.5,
-        density: 0.002,
-        render: { fillStyle: f.color, lineWidth: 2, strokeStyle: "rgba(0,0,0,0.15)" }
+        restitution: 0.15,
+        friction: 0.4,
+        frictionAir: 0.008,
+        density: 0.0015,
+        slop: 0.01,
+        render: { fillStyle: f.color, lineWidth: 2, strokeStyle: "rgba(0,0,0,0.12)" }
     });
     body.fruitIndex = index;
     body.spawnTime = Date.now();
@@ -251,7 +353,7 @@ function onCollision(event) {
                 toRemove.add(bodyB.id);
                 toCreate.push({ x: midX, y: midY, index: idx + 1 });
                 score += FRUITS[idx + 1].points;
-                showMergeFlash(midX, midY, FRUITS[idx + 1].radius);
+                showMergeFlash(midX, midY, FRUITS[idx + 1].radius, FRUITS[idx + 1].color);
             }
         }
     });
@@ -259,22 +361,56 @@ function onCollision(event) {
     if (toRemove.size > 0) {
         const bodies = Composite.allBodies(engine.world);
         bodies.forEach(b => { if (toRemove.has(b.id)) World.remove(engine.world, b); });
-        toCreate.forEach(c => spawnFruit(c.x, c.y, c.index));
+        toCreate.forEach(c => {
+            const newBody = spawnFruit(c.x, c.y, c.index);
+            applyShockwave(c.x, c.y, FRUITS[c.index].radius);
+        });
         scoreDisplay.textContent = score;
     }
 }
 
-function showMergeFlash(x, y, radius) {
-    const container = document.getElementById("game-container");
+function applyShockwave(cx, cy, mergedRadius) {
+    const bodies = Composite.allBodies(engine.world);
+    const effectRadius = SHOCKWAVE_RADIUS + mergedRadius;
+
+    bodies.forEach(b => {
+        if (b.isStatic || b.fruitIndex === undefined) return;
+        const dx = b.position.x - cx;
+        const dy = b.position.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 1 || dist > effectRadius) return;
+
+        const falloff = 1 - (dist / effectRadius);
+        const strength = SHOCKWAVE_FORCE * falloff * falloff;
+        const angle = Math.atan2(dy, dx);
+        Body.applyForce(b, b.position, {
+            x: Math.cos(angle) * strength,
+            y: Math.sin(angle) * strength
+        });
+    });
+}
+
+function showMergeFlash(x, y, radius, color) {
     const flash = document.createElement("div");
     flash.style.cssText = `
         position:absolute; left:${x - radius}px; top:${y - radius}px;
         width:${radius*2}px; height:${radius*2}px; border-radius:50%; pointer-events:none;
         background:radial-gradient(circle, rgba(255,255,255,0.7), transparent 70%);
-        z-index:5; animation: flashAnim 0.35s ease-out forwards;
+        z-index:5; animation: popIn 0.3s ease-out forwards;
     `;
-    container.appendChild(flash);
-    setTimeout(() => flash.remove(), 400);
+    gameContainer.appendChild(flash);
+
+    const ring = document.createElement("div");
+    const ringSize = radius * 3;
+    ring.style.cssText = `
+        position:absolute; left:${x - ringSize}px; top:${y - ringSize}px;
+        width:${ringSize*2}px; height:${ringSize*2}px; border-radius:50%; pointer-events:none;
+        border: 3px solid ${color}; background: transparent;
+        z-index:4; animation: shockwaveAnim 0.5s ease-out forwards;
+    `;
+    gameContainer.appendChild(ring);
+
+    setTimeout(() => { flash.remove(); ring.remove(); }, 600);
 }
 
 function checkGameOver() {
@@ -307,23 +443,48 @@ function triggerGameOver() {
     gameOver = true;
     canDrop = false;
     previewBall.style.display = "none";
+    dropGuide.style.display = "none";
     finalScoreEl.textContent = score;
     gameOverOverlay.classList.add("active");
     if (runner) Runner.stop(runner);
+    if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
 }
 
-function updatePreview() {
+function startPreviewLoop() {
+    function tick() {
+        if (gameOver) return;
+        displayX += (mouseX - displayX) * LERP_SPEED;
+        if (canDrop) renderPreviewAt(displayX);
+        animFrameId = requestAnimationFrame(tick);
+    }
+    animFrameId = requestAnimationFrame(tick);
+}
+
+function renderPreviewAt(x) {
     const f = FRUITS[currentFruitIndex];
     const size = f.radius * 2;
+    const clampedX = Math.max(10 + f.radius, Math.min(CANVAS_W - 10 - f.radius, x));
+
     previewBall.style.width = size + "px";
     previewBall.style.height = size + "px";
     previewBall.style.background = f.color;
     previewBall.style.fontSize = (f.radius * 0.9) + "px";
     previewBall.textContent = f.emoji;
     previewBall.style.display = "flex";
-    const x = Math.max(10 + f.radius, Math.min(CANVAS_W - 10 - f.radius, mouseX));
-    previewBall.style.left = (x - f.radius) + "px";
-    previewBall.style.top = (40 - f.radius) + "px";
+    previewBall.style.transform = `translate(${clampedX - f.radius}px, ${40 - f.radius}px)`;
+    previewBall.style.left = "0";
+    previewBall.style.top = "0";
+
+    dropGuide.style.display = "block";
+    dropGuide.style.height = (CANVAS_H - 80) + "px";
+    dropGuide.style.transform = `translateX(${clampedX - 1}px)`;
+    dropGuide.style.top = "80px";
+    dropGuide.style.left = "0";
+}
+
+function updatePreviewImmediate() {
+    displayX = mouseX;
+    renderPreviewAt(displayX);
 }
 
 function updateNextDisplay() {
@@ -336,7 +497,8 @@ function startCooldown() {
     canDrop = false;
     cooldownBar.style.opacity = "1";
     let elapsed = 0;
-    const interval = 30;
+    const interval = 16;
+    if (cooldownTimer) clearInterval(cooldownTimer);
     cooldownTimer = setInterval(() => {
         elapsed += interval;
         const pct = Math.min(100, (elapsed / DROP_COOLDOWN) * 100);
@@ -350,17 +512,8 @@ function startCooldown() {
     }, interval);
 }
 
-document.getElementById("game-container").addEventListener("mousemove", (e) => {
-    if (gameOver) return;
-    const rect = render.canvas.getBoundingClientRect();
-    mouseX = e.clientX - rect.left;
-    if (canDrop) updatePreview();
-});
-
-document.getElementById("game-container").addEventListener("mousedown", (e) => {
+function dropFruit(x) {
     if (gameOver || !canDrop) return;
-    const rect = render.canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
     const f = FRUITS[currentFruitIndex];
     const safeX = Math.max(10 + f.radius, Math.min(CANVAS_W - 10 - f.radius, x));
 
@@ -370,50 +523,40 @@ document.getElementById("game-container").addEventListener("mousedown", (e) => {
     updateNextDisplay();
 
     previewBall.style.display = "none";
+    dropGuide.style.display = "none";
     startCooldown();
     setTimeout(() => {
         if (!gameOver) {
-            updatePreview();
-            previewBall.style.display = "flex";
+            updatePreviewImmediate();
         }
     }, DROP_COOLDOWN);
+}
+
+gameContainer.addEventListener("mousemove", (e) => {
+    if (gameOver) return;
+    const rect = render.canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
 });
 
-document.getElementById("game-container").addEventListener("touchmove", (e) => {
+gameContainer.addEventListener("mousedown", (e) => {
+    const rect = render.canvas.getBoundingClientRect();
+    dropFruit(e.clientX - rect.left);
+});
+
+gameContainer.addEventListener("touchmove", (e) => {
     e.preventDefault();
     if (gameOver) return;
     const rect = render.canvas.getBoundingClientRect();
     mouseX = e.touches[0].clientX - rect.left;
-    if (canDrop) updatePreview();
 }, { passive: false });
 
-document.getElementById("game-container").addEventListener("touchend", (e) => {
-    if (gameOver || !canDrop) return;
-    const f = FRUITS[currentFruitIndex];
-    const safeX = Math.max(10 + f.radius, Math.min(CANVAS_W - 10 - f.radius, mouseX));
-
-    spawnFruit(safeX, 40, currentFruitIndex);
-    currentFruitIndex = nextFruitIndex;
-    nextFruitIndex = getRandomFruitIndex();
-    updateNextDisplay();
-
-    previewBall.style.display = "none";
-    startCooldown();
-    setTimeout(() => {
-        if (!gameOver) {
-            updatePreview();
-            previewBall.style.display = "flex";
-        }
-    }, DROP_COOLDOWN);
+gameContainer.addEventListener("touchend", (e) => {
+    dropFruit(mouseX);
 });
 
 restartBtn.addEventListener("click", initGame);
 
-const styleSheet = document.createElement("style");
-styleSheet.textContent = `@keyframes flashAnim { 0%{transform:scale(0);opacity:1} 100%{transform:scale(2.5);opacity:0} }`;
-document.head.appendChild(styleSheet);
-
-buildLegend();
+buildEvolutionPanel();
 initGame();
 </script>
 </body>
