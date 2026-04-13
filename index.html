@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fruit Merge Game</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        #game-wrapper {
+            position: relative;
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
+        }
+        #top-bar {
+            width: 400px; display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 16px; background: rgba(255,255,255,0.1);
+            border-radius: 12px; backdrop-filter: blur(10px);
+        }
+        #top-bar .score-label { color: #aaa; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
+        #top-bar .score-value { color: #fff; font-size: 28px; font-weight: 700; }
+        #top-bar .next-preview {
+            display: flex; align-items: center; gap: 8px; color: #aaa; font-size: 13px;
+        }
+        #next-fruit-display {
+            width: 36px; height: 36px; border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.2);
+            display: flex; align-items: center; justify-content: center; font-size: 20px;
+        }
+        #game-container {
+            position: relative; width: 410px; height: 610px;
+            border-radius: 0 0 16px 16px; overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        #game-container canvas { display: block; }
+        #drop-line {
+            position: absolute; top: 0; left: 0; width: 100%;
+            height: 80px; pointer-events: none;
+            border-bottom: 2px dashed rgba(255,100,100,0.4);
+            background: linear-gradient(to bottom, rgba(255,100,100,0.08), transparent);
+        }
+        #preview-ball {
+            position: absolute; top: 10px; border-radius: 50%;
+            pointer-events: none; z-index: 10;
+            transition: left 0.05s ease-out;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            opacity: 0.85;
+        }
+        #cooldown-bar {
+            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+            width: 120px; height: 4px; background: rgba(255,255,255,0.15);
+            border-radius: 2px; overflow: hidden; pointer-events: none;
+            opacity: 0; transition: opacity 0.2s;
+        }
+        #cooldown-fill {
+            height: 100%; width: 0%; background: linear-gradient(90deg, #ff6b6b, #ffd93d);
+            border-radius: 2px; transition: width 0.05s linear;
+        }
+        #game-over-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.75); backdrop-filter: blur(5px);
+            display: none; flex-direction: column;
+            justify-content: center; align-items: center;
+            z-index: 100; border-radius: 0 0 16px 16px;
+        }
+        #game-over-overlay.active { display: flex; }
+        #game-over-overlay h2 {
+            color: #ff6b6b; font-size: 42px; margin-bottom: 8px; text-shadow: 0 2px 10px rgba(255,100,100,0.5);
+        }
+        #game-over-overlay .final-score { color: #ffd93d; font-size: 24px; margin-bottom: 24px; }
+        #game-over-overlay button {
+            padding: 12px 40px; font-size: 18px; font-weight: 600;
+            border: none; border-radius: 30px; cursor: pointer;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: #fff; box-shadow: 0 4px 15px rgba(238,90,36,0.4);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        #game-over-overlay button:hover {
+            transform: scale(1.05); box-shadow: 0 6px 20px rgba(238,90,36,0.6);
+        }
+        #merge-flash {
+            position: absolute; border-radius: 50%; pointer-events: none;
+            background: radial-gradient(circle, rgba(255,255,255,0.6), transparent 70%);
+            transform: scale(0); z-index: 5;
+        }
+        #legend {
+            width: 400px; display: flex; justify-content: center; flex-wrap: wrap; gap: 6px;
+            padding: 8px; background: rgba(255,255,255,0.05); border-radius: 10px;
+        }
+        .legend-item {
+            display: flex; align-items: center; gap: 4px;
+            color: #ccc; font-size: 11px;
+        }
+        .legend-dot {
+            width: 14px; height: 14px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <div id="top-bar">
+        <div>
+            <div class="score-label">Score</div>
+            <div class="score-value" id="score-display">0</div>
+        </div>
+        <div class="next-preview">
+            <span>NEXT</span>
+            <div id="next-fruit-display"></div>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <div id="drop-line"></div>
+        <div id="preview-ball"></div>
+        <div id="cooldown-bar"><div id="cooldown-fill"></div></div>
+        <div id="game-over-overlay">
+            <h2>GAME OVER</h2>
+            <div class="final-score">Score: <span id="final-score">0</span></div>
+            <button id="restart-btn">Play Again</button>
+        </div>
+    </div>
+
+    <div id="legend" id="fruit-legend"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<script>
+const FRUITS = [
+    { label: "cherry",      radius: 14, color: "#e74c3c", emoji: "\ud83c\udf52", points: 1   },
+    { label: "strawberry",   radius: 20, color: "#e84393", emoji: "\ud83c\udf53", points: 3   },
+    { label: "grape",        radius: 28, color: "#6c5ce7", emoji: "\ud83c\udf47", points: 6   },
+    { label: "dekopon",      radius: 34, color: "#fdcb6e", emoji: "\ud83c\udf4a", points: 10  },
+    { label: "orange",       radius: 42, color: "#e17055", emoji: "\ud83c\udf4a", points: 15  },
+    { label: "apple",        radius: 50, color: "#00b894", emoji: "\ud83c\udf4e", points: 21  },
+    { label: "pear",         radius: 58, color: "#a3cb38", emoji: "\ud83c\udf50", points: 28  },
+    { label: "peach",        radius: 66, color: "#fab1a0", emoji: "\ud83c\udf51", points: 36  },
+    { label: "pineapple",    radius: 74, color: "#f9ca24", emoji: "\ud83c\udf4d", points: 45  },
+    { label: "melon",        radius: 82, color: "#badc58", emoji: "\ud83c\udf48", points: 55  },
+    { label: "watermelon",   radius: 90, color: "#2ecc71", emoji: "\ud83c\udf49", points: 66  },
+];
+
+const CANVAS_W = 410, CANVAS_H = 610;
+const DROP_ZONE_Y = 80;
+const WALL_THICKNESS = 10;
+const DROP_COOLDOWN = 1000;
+const GAME_OVER_THRESHOLD = 3000;
+const RANDOM_POOL_SIZE = 3;
+
+const { Engine, Render, Runner, Bodies, Body, Composite, Events, World, Vector } = Matter;
+
+let engine, render, runner;
+let score = 0;
+let canDrop = true;
+let cooldownTimer = null;
+let gameOver = false;
+let mouseX = CANVAS_W / 2;
+let currentFruitIndex = getRandomFruitIndex();
+let nextFruitIndex = getRandomFruitIndex();
+let dangerTimers = {};
+
+const scoreDisplay = document.getElementById("score-display");
+const previewBall = document.getElementById("preview-ball");
+const cooldownBar = document.getElementById("cooldown-bar");
+const cooldownFill = document.getElementById("cooldown-fill");
+const nextFruitDisplay = document.getElementById("next-fruit-display");
+const gameOverOverlay = document.getElementById("game-over-overlay");
+const finalScoreEl = document.getElementById("final-score");
+const restartBtn = document.getElementById("restart-btn");
+
+function getRandomFruitIndex() {
+    return Math.floor(Math.random() * RANDOM_POOL_SIZE);
+}
+
+function buildLegend() {
+    const legend = document.getElementById("legend");
+    legend.innerHTML = FRUITS.map(f =>
+        `<div class="legend-item"><span class="legend-dot" style="background:${f.color}">${f.emoji}</span>${f.label}</div>`
+    ).join("");
+}
+
+function initGame() {
+    score = 0; gameOver = false; canDrop = true;
+    dangerTimers = {};
+    scoreDisplay.textContent = "0";
+    gameOverOverlay.classList.remove("active");
+
+    if (engine) { Engine.clear(engine); }
+    if (render) { Render.stop(render); render.canvas.remove(); }
+    if (runner) { Runner.stop(runner); }
+
+    engine = Engine.create();
+    render = Render.create({
+        element: document.getElementById("game-container"),
+        engine,
+        options: { width: CANVAS_W, height: CANVAS_H, wireframes: false, background: "#fdf6e3" }
+    });
+
+    const ground   = Bodies.rectangle(CANVAS_W/2, CANVAS_H - 5, CANVAS_W, WALL_THICKNESS, { isStatic: true, render: { fillStyle: "#555" }, label: "wall" });
+    const leftWall = Bodies.rectangle(5, CANVAS_H/2, WALL_THICKNESS, CANVAS_H,             { isStatic: true, render: { fillStyle: "#555" }, label: "wall" });
+    const rightWall= Bodies.rectangle(CANVAS_W - 5, CANVAS_H/2, WALL_THICKNESS, CANVAS_H,  { isStatic: true, render: { fillStyle: "#555" }, label: "wall" });
+    Composite.add(engine.world, [ground, leftWall, rightWall]);
+
+    currentFruitIndex = getRandomFruitIndex();
+    nextFruitIndex = getRandomFruitIndex();
+    updatePreview();
+    updateNextDisplay();
+
+    Events.on(engine, "collisionStart", onCollision);
+    Events.on(engine, "afterUpdate", checkGameOver);
+
+    Render.run(render);
+    runner = Runner.create();
+    Runner.run(runner, engine);
+}
+
+function spawnFruit(x, y, index) {
+    const f = FRUITS[index];
+    const body = Bodies.circle(x, y, f.radius, {
+        label: f.label,
+        restitution: 0.2,
+        friction: 0.5,
+        density: 0.002,
+        render: { fillStyle: f.color, lineWidth: 2, strokeStyle: "rgba(0,0,0,0.15)" }
+    });
+    body.fruitIndex = index;
+    body.spawnTime = Date.now();
+    Composite.add(engine.world, body);
+    return body;
+}
+
+function onCollision(event) {
+    if (gameOver) return;
+    const toRemove = new Set();
+    const toCreate = [];
+
+    event.pairs.forEach(({ bodyA, bodyB }) => {
+        if (toRemove.has(bodyA.id) || toRemove.has(bodyB.id)) return;
+        if (bodyA.label === bodyB.label && bodyA.fruitIndex !== undefined && bodyB.fruitIndex !== undefined) {
+            const idx = bodyA.fruitIndex;
+            if (idx < FRUITS.length - 1) {
+                const midX = (bodyA.position.x + bodyB.position.x) / 2;
+                const midY = (bodyA.position.y + bodyB.position.y) / 2;
+                toRemove.add(bodyA.id);
+                toRemove.add(bodyB.id);
+                toCreate.push({ x: midX, y: midY, index: idx + 1 });
+                score += FRUITS[idx + 1].points;
+                showMergeFlash(midX, midY, FRUITS[idx + 1].radius);
+            }
+        }
+    });
+
+    if (toRemove.size > 0) {
+        const bodies = Composite.allBodies(engine.world);
+        bodies.forEach(b => { if (toRemove.has(b.id)) World.remove(engine.world, b); });
+        toCreate.forEach(c => spawnFruit(c.x, c.y, c.index));
+        scoreDisplay.textContent = score;
+    }
+}
+
+function showMergeFlash(x, y, radius) {
+    const container = document.getElementById("game-container");
+    const flash = document.createElement("div");
+    flash.style.cssText = `
+        position:absolute; left:${x - radius}px; top:${y - radius}px;
+        width:${radius*2}px; height:${radius*2}px; border-radius:50%; pointer-events:none;
+        background:radial-gradient(circle, rgba(255,255,255,0.7), transparent 70%);
+        z-index:5; animation: flashAnim 0.35s ease-out forwards;
+    `;
+    container.appendChild(flash);
+    setTimeout(() => flash.remove(), 400);
+}
+
+function checkGameOver() {
+    if (gameOver) return;
+    const now = Date.now();
+    const bodies = Composite.allBodies(engine.world);
+    const activeDangerIds = new Set();
+
+    bodies.forEach(b => {
+        if (b.isStatic || b.fruitIndex === undefined) return;
+        if (now - b.spawnTime < 2000) return;
+
+        const speed = Vector.magnitude(b.velocity);
+        if (b.position.y - FRUITS[b.fruitIndex].radius < DROP_ZONE_Y && speed < 0.5) {
+            activeDangerIds.add(b.id);
+            if (!dangerTimers[b.id]) {
+                dangerTimers[b.id] = now;
+            } else if (now - dangerTimers[b.id] > GAME_OVER_THRESHOLD) {
+                triggerGameOver();
+            }
+        }
+    });
+
+    Object.keys(dangerTimers).forEach(id => {
+        if (!activeDangerIds.has(parseInt(id))) delete dangerTimers[id];
+    });
+}
+
+function triggerGameOver() {
+    gameOver = true;
+    canDrop = false;
+    previewBall.style.display = "none";
+    finalScoreEl.textContent = score;
+    gameOverOverlay.classList.add("active");
+    if (runner) Runner.stop(runner);
+}
+
+function updatePreview() {
+    const f = FRUITS[currentFruitIndex];
+    const size = f.radius * 2;
+    previewBall.style.width = size + "px";
+    previewBall.style.height = size + "px";
+    previewBall.style.background = f.color;
+    previewBall.style.fontSize = (f.radius * 0.9) + "px";
+    previewBall.textContent = f.emoji;
+    previewBall.style.display = "flex";
+    const x = Math.max(10 + f.radius, Math.min(CANVAS_W - 10 - f.radius, mouseX));
+    previewBall.style.left = (x - f.radius) + "px";
+    previewBall.style.top = (40 - f.radius) + "px";
+}
+
+function updateNextDisplay() {
+    const f = FRUITS[nextFruitIndex];
+    nextFruitDisplay.style.background = f.color;
+    nextFruitDisplay.textContent = f.emoji;
+}
+
+function startCooldown() {
+    canDrop = false;
+    cooldownBar.style.opacity = "1";
+    let elapsed = 0;
+    const interval = 30;
+    cooldownTimer = setInterval(() => {
+        elapsed += interval;
+        const pct = Math.min(100, (elapsed / DROP_COOLDOWN) * 100);
+        cooldownFill.style.width = pct + "%";
+        if (elapsed >= DROP_COOLDOWN) {
+            clearInterval(cooldownTimer);
+            canDrop = true;
+            cooldownBar.style.opacity = "0";
+            cooldownFill.style.width = "0%";
+        }
+    }, interval);
+}
+
+document.getElementById("game-container").addEventListener("mousemove", (e) => {
+    if (gameOver) return;
+    const rect = render.canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    if (canDrop) updatePreview();
+});
+
+document.getElementById("game-container").addEventListener("mousedown", (e) => {
+    if (gameOver || !canDrop) return;
+    const rect = render.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const f = FRUITS[currentFruitIndex];
+    const safeX = Math.max(10 + f.radius, Math.min(CANVAS_W - 10 - f.radius, x));
+
+    spawnFruit(safeX, 40, currentFruitIndex);
+    currentFruitIndex = nextFruitIndex;
+    nextFruitIndex = getRandomFruitIndex();
+    updateNextDisplay();
+
+    previewBall.style.display = "none";
+    startCooldown();
+    setTimeout(() => {
+        if (!gameOver) {
+            updatePreview();
+            previewBall.style.display = "flex";
+        }
+    }, DROP_COOLDOWN);
+});
+
+document.getElementById("game-container").addEventListener("touchmove", (e) => {
+    e.preventDefault();
+    if (gameOver) return;
+    const rect = render.canvas.getBoundingClientRect();
+    mouseX = e.touches[0].clientX - rect.left;
+    if (canDrop) updatePreview();
+}, { passive: false });
+
+document.getElementById("game-container").addEventListener("touchend", (e) => {
+    if (gameOver || !canDrop) return;
+    const f = FRUITS[currentFruitIndex];
+    const safeX = Math.max(10 + f.radius, Math.min(CANVAS_W - 10 - f.radius, mouseX));
+
+    spawnFruit(safeX, 40, currentFruitIndex);
+    currentFruitIndex = nextFruitIndex;
+    nextFruitIndex = getRandomFruitIndex();
+    updateNextDisplay();
+
+    previewBall.style.display = "none";
+    startCooldown();
+    setTimeout(() => {
+        if (!gameOver) {
+            updatePreview();
+            previewBall.style.display = "flex";
+        }
+    }, DROP_COOLDOWN);
+});
+
+restartBtn.addEventListener("click", initGame);
+
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `@keyframes flashAnim { 0%{transform:scale(0);opacity:1} 100%{transform:scale(2.5);opacity:0} }`;
+document.head.appendChild(styleSheet);
+
+buildLegend();
+initGame();
+</script>
+</body>
+</html>
