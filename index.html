@@ -98,17 +98,17 @@
 
         /* Evolution panel */
         #evolution-panel {
-            width: 72px;
+            width: 100px;
             background: rgba(255,255,255,0.07);
-            border-radius: 14px;
-            padding: 10px 8px;
-            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            border-radius: 18px;
+            padding: 14px 12px;
+            display: flex; flex-direction: column; align-items: center; gap: 3px;
             backdrop-filter: blur(10px);
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
         #evolution-panel .evo-title {
-            color: #aaa; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px;
-            margin-bottom: 6px; font-weight: 600;
+            color: #aaa; font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px;
+            margin-bottom: 8px; font-weight: 600;
         }
         .evo-item {
             display: flex; flex-direction: column; align-items: center;
@@ -123,13 +123,13 @@
         }
         .evo-ball:hover { transform: scale(1.2); box-shadow: 0 4px 14px rgba(0,0,0,0.4); }
         .evo-arrow {
-            color: rgba(255,255,255,0.2); font-size: 10px; line-height: 1;
-            margin: 1px 0;
+            color: rgba(255,255,255,0.25); font-size: 12px; line-height: 1;
+            margin: 2px 0;
         }
         .evo-label {
-            display: none; position: absolute; left: 62px; top: 50%; transform: translateY(-50%);
-            background: rgba(0,0,0,0.85); color: #fff; font-size: 11px;
-            padding: 3px 8px; border-radius: 6px; white-space: nowrap;
+            display: none; position: absolute; left: 82px; top: 50%; transform: translateY(-50%);
+            background: rgba(0,0,0,0.85); color: #fff; font-size: 12px;
+            padding: 4px 10px; border-radius: 6px; white-space: nowrap;
             pointer-events: none; z-index: 200;
         }
         .evo-item:hover .evo-label { display: block; }
@@ -205,8 +205,8 @@ const DROP_COOLDOWN = 1000;
 const GAME_OVER_THRESHOLD = 3000;
 const RANDOM_POOL_SIZE = 3;
 const LERP_SPEED = 0.15;
-const SHOCKWAVE_RADIUS = 120;
-const SHOCKWAVE_FORCE = 0.035;
+const SHOCKWAVE_RADIUS = 150;
+const SHOCKWAVE_FORCE = 0.12;
 
 const { Engine, Render, Runner, Bodies, Body, Composite, Events, World, Vector } = Matter;
 
@@ -239,7 +239,7 @@ function getRandomFruitIndex() {
 
 function buildEvolutionPanel() {
     const panel = document.getElementById("evolution-panel");
-    const minDisplay = 12, maxDisplay = 28;
+    const minDisplay = 17, maxDisplay = 40;
 
     FRUITS.forEach((f, i) => {
         const item = document.createElement("div");
@@ -251,7 +251,7 @@ function buildEvolutionPanel() {
         ball.style.width = size + "px";
         ball.style.height = size + "px";
         ball.style.background = f.color;
-        ball.style.fontSize = (size * 0.65) + "px";
+        ball.style.fontSize = (size * 0.6) + "px";
         ball.textContent = f.emoji;
 
         const label = document.createElement("div");
@@ -283,9 +283,10 @@ function initGame() {
     if (runner) Runner.stop(runner);
 
     engine = Engine.create({
-        positionIterations: 10,
-        velocityIterations: 10,
+        positionIterations: 12,
+        velocityIterations: 12,
         constraintIterations: 4,
+        enableSleeping: false,
     });
 
     render = Render.create({
@@ -324,11 +325,12 @@ function spawnFruit(x, y, index) {
     const f = FRUITS[index];
     const body = Bodies.circle(x, y, f.radius, {
         label: f.label,
-        restitution: 0.15,
-        friction: 0.4,
-        frictionAir: 0.008,
-        density: 0.0015,
-        slop: 0.01,
+        restitution: 0.35,
+        friction: 0.08,
+        frictionStatic: 0.3,
+        frictionAir: 0.003,
+        density: 0.0012,
+        slop: 0.05,
         render: { fillStyle: f.color, lineWidth: 2, strokeStyle: "rgba(0,0,0,0.12)" }
     });
     body.fruitIndex = index;
@@ -381,11 +383,20 @@ function applyShockwave(cx, cy, mergedRadius) {
         if (dist < 1 || dist > effectRadius) return;
 
         const falloff = 1 - (dist / effectRadius);
-        const strength = SHOCKWAVE_FORCE * falloff * falloff;
         const angle = Math.atan2(dy, dx);
+
+        const forceStrength = SHOCKWAVE_FORCE * falloff * falloff;
         Body.applyForce(b, b.position, {
-            x: Math.cos(angle) * strength,
-            y: Math.sin(angle) * strength
+            x: Math.cos(angle) * forceStrength,
+            y: Math.sin(angle) * forceStrength
+        });
+
+        const impulseSpeed = 4.5 * falloff;
+        const currentVx = b.velocity.x;
+        const currentVy = b.velocity.y;
+        Body.setVelocity(b, {
+            x: currentVx + Math.cos(angle) * impulseSpeed,
+            y: currentVy + Math.sin(angle) * impulseSpeed
         });
     });
 }
