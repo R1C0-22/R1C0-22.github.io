@@ -56,8 +56,8 @@
             transition: none;
         }
         #drop-guide {
-            position: absolute; width: 2px; pointer-events: none; z-index: 9;
-            background: linear-gradient(to bottom, rgba(255,255,255,0.25), rgba(255,255,255,0.03));
+            position: absolute; width: 4px; pointer-events: none; z-index: 9;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.05));
             will-change: transform;
         }
 
@@ -221,6 +221,8 @@ let currentFruitIndex = getRandomFruitIndex();
 let nextFruitIndex = getRandomFruitIndex();
 let dangerTimers = {};
 let animFrameId = null;
+let lastDroppedBody = null;
+let waitingForLand = false;
 
 const scoreDisplay = document.getElementById("score-display");
 const previewBall = document.getElementById("preview-ball");
@@ -312,6 +314,7 @@ function initGame() {
     updateNextDisplay();
 
     Events.on(engine, "collisionStart", onCollision);
+    Events.on(engine, "collisionStart", onLandDetect);
     Events.on(engine, "afterUpdate", checkGameOver);
 
     Render.run(render);
@@ -427,6 +430,15 @@ function showMergeFlash(x, y, radius, color) {
 function checkGameOver() {
     if (gameOver) return;
     const now = Date.now();
+
+    if (waitingForLand && lastDroppedBody) {
+        const bodyStillExists = Composite.allBodies(engine.world).some(b => b.id === lastDroppedBody.id);
+        if (!bodyStillExists || now - dropTimestamp > 5000) {
+            waitingForLand = false;
+            lastDroppedBody = null;
+            enableNextDrop();
+        }
+    }
     const bodies = Composite.allBodies(engine.world);
     const activeDangerIds = new Set();
 
@@ -488,7 +500,7 @@ function renderPreviewAt(x) {
 
     dropGuide.style.display = "block";
     dropGuide.style.height = (CANVAS_H - 80) + "px";
-    dropGuide.style.transform = `translateX(${clampedX - 1}px)`;
+    dropGuide.style.transform = `translateX(${clampedX - 2}px)`;
     dropGuide.style.top = "80px";
     dropGuide.style.left = "0";
 }
@@ -504,43 +516,68 @@ function updateNextDisplay() {
     nextFruitDisplay.textContent = f.emoji;
 }
 
-function startCooldown() {
-    canDrop = false;
-    cooldownBar.style.opacity = "1";
-    let elapsed = 0;
-    const interval = 16;
-    if (cooldownTimer) clearInterval(cooldownTimer);
-    cooldownTimer = setInterval(() => {
-        elapsed += interval;
-        const pct = Math.min(100, (elapsed / DROP_COOLDOWN) * 100);
-        cooldownFill.style.width = pct + "%";
-        if (elapsed >= DROP_COOLDOWN) {
-            clearInterval(cooldownTimer);
-            canDrop = true;
-            cooldownBar.style.opacity = "0";
-            cooldownFill.style.width = "0%";
+function onLandDetect(event) {
+    if (!waitingForLand || !lastDroppedBody) return;
+    for (const pair of event.pairs) {
+        if (pair.bodyA.id === lastDroppedBody.id || pair.bodyB.id === lastDroppedBody.id) {
+            waitingForLand = false;
+            lastDroppedBody = null;
+            enableNextDrop();
+            return;
         }
-    }, interval);
+    }
 }
+
+function enableNextDrop() {
+    if (gameOver) return;
+    const minDelay = 300;
+    const elapsed = Date.now() - dropTimestamp;
+    const remaining = Math.max(0, minDelay - elapsed);
+    setTimeout(() => {
+        if (gameOver) return;
+        canDrop = true;
+        cooldownBar.style.opacity = "0";
+        cooldownFill.style.width = "0%";
+        updatePreviewImmediate();
+    }, remaining);
+}
+
+let dropTimestamp = 0;
 
 function dropFruit(x) {
     if (gameOver || !canDrop) return;
     const f = FRUITS[currentFruitIndex];
     const safeX = Math.max(10 + f.radius, Math.min(CANVAS_W - 10 - f.radius, x));
 
-    spawnFruit(safeX, 40, currentFruitIndex);
+    lastDroppedBody = spawnFruit(safeX, 40, currentFruitIndex);
+    waitingForLand = true;
+    dropTimestamp = Date.now();
+
     currentFruitIndex = nextFruitIndex;
     nextFruitIndex = getRandomFruitIndex();
     updateNextDisplay();
 
+    canDrop = false;
     previewBall.style.display = "none";
     dropGuide.style.display = "none";
-    startCooldown();
-    setTimeout(() => {
-        if (!gameOver) {
-            updatePreviewImmediate();
+    cooldownBar.style.opacity = "1";
+    cooldownFill.style.width = "0%";
+
+    startCooldownAnimation();
+}
+
+function startCooldownAnimation() {
+    if (cooldownTimer) clearInterval(cooldownTimer);
+    const interval = 16;
+    cooldownTimer = setInterval(() => {
+        if (!waitingForLand) {
+            clearInterval(cooldownTimer);
+            return;
         }
-    }, DROP_COOLDOWN);
+        const elapsed = Date.now() - dropTimestamp;
+        const pct = Math.min(95, (elapsed / 2000) * 100);
+        cooldownFill.style.width = pct + "%";
+    }, interval);
 }
 
 gameContainer.addEventListener("mousemove", (e) => {
