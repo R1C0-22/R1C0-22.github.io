@@ -276,6 +276,7 @@ function buildEvolutionPanel() {
 function initGame() {
     score = 0; gameOver = false; canDrop = true;
     dangerTimers = {};
+    removedIds.clear();
     scoreDisplay.textContent = "0";
     gameOverOverlay.classList.remove("active");
 
@@ -324,34 +325,51 @@ function initGame() {
     startPreviewLoop();
 }
 
-function spawnFruit(x, y, index) {
+function spawnFruit(x, y, index, isMergeResult) {
     const f = FRUITS[index];
     const body = Bodies.circle(x, y, f.radius, {
         label: f.label,
         restitution: 0.35,
-        friction: 0.08,
-        frictionStatic: 0.3,
-        frictionAir: 0.003,
+        friction: 0.055,
+        frictionStatic: 0.2,
+        frictionAir: 0.002,
         density: 0.0012,
         slop: 0.05,
         render: { fillStyle: f.color, lineWidth: 2, strokeStyle: "rgba(0,0,0,0.12)" }
     });
     body.fruitIndex = index;
     body.spawnTime = Date.now();
+    body.mergeImmunityUntil = isMergeResult ? Date.now() + 200 : 0;
     Composite.add(engine.world, body);
     return body;
 }
 
+const removedIds = new Set();
+
+function isBodyInWorld(body) {
+    return Composite.allBodies(engine.world).some(b => b.id === body.id);
+}
+
 function onCollision(event) {
     if (gameOver) return;
+    const now = Date.now();
     const toRemove = new Set();
     const toCreate = [];
 
     event.pairs.forEach(({ bodyA, bodyB }) => {
         if (toRemove.has(bodyA.id) || toRemove.has(bodyB.id)) return;
+        if (removedIds.has(bodyA.id) || removedIds.has(bodyB.id)) return;
+
         if (bodyA.label === bodyB.label && bodyA.fruitIndex !== undefined && bodyB.fruitIndex !== undefined) {
+            if ((bodyA.mergeImmunityUntil && now < bodyA.mergeImmunityUntil) ||
+                (bodyB.mergeImmunityUntil && now < bodyB.mergeImmunityUntil)) {
+                return;
+            }
+
             const idx = bodyA.fruitIndex;
             if (idx < FRUITS.length - 1) {
+                if (!isBodyInWorld(bodyA) || !isBodyInWorld(bodyB)) return;
+
                 const midX = (bodyA.position.x + bodyB.position.x) / 2;
                 const midY = (bodyA.position.y + bodyB.position.y) / 2;
                 toRemove.add(bodyA.id);
@@ -364,26 +382,34 @@ function onCollision(event) {
     });
 
     if (toRemove.size > 0) {
+        toRemove.forEach(id => removedIds.add(id));
         const bodies = Composite.allBodies(engine.world);
-        bodies.forEach(b => { if (toRemove.has(b.id)) World.remove(engine.world, b); });
+        bodies.forEach(b => {
+            if (toRemove.has(b.id)) World.remove(engine.world, b);
+        });
         toCreate.forEach(c => {
-            const newBody = spawnFruit(c.x, c.y, c.index);
+            spawnFruit(c.x, c.y, c.index, true);
             applyShockwave(c.x, c.y, FRUITS[c.index].radius);
         });
         scoreDisplay.textContent = score;
+        setTimeout(() => {
+            toRemove.forEach(id => removedIds.delete(id));
+        }, 500);
     }
 }
 
 function applyShockwave(cx, cy, mergedRadius) {
     const bodies = Composite.allBodies(engine.world);
     const effectRadius = SHOCKWAVE_RADIUS + mergedRadius;
+    const now = Date.now();
 
     bodies.forEach(b => {
         if (b.isStatic || b.fruitIndex === undefined) return;
+        if (b.mergeImmunityUntil && now < b.mergeImmunityUntil) return;
         const dx = b.position.x - cx;
         const dy = b.position.y - cy;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 1 || dist > effectRadius) return;
+        if (dist < 5 || dist > effectRadius) return;
 
         const falloff = 1 - (dist / effectRadius);
         const angle = Math.atan2(dy, dx);
@@ -395,11 +421,9 @@ function applyShockwave(cx, cy, mergedRadius) {
         });
 
         const impulseSpeed = 4.5 * falloff;
-        const currentVx = b.velocity.x;
-        const currentVy = b.velocity.y;
         Body.setVelocity(b, {
-            x: currentVx + Math.cos(angle) * impulseSpeed,
-            y: currentVy + Math.sin(angle) * impulseSpeed
+            x: b.velocity.x + Math.cos(angle) * impulseSpeed,
+            y: b.velocity.y + Math.sin(angle) * impulseSpeed
         });
     });
 }
