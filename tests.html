@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2048 Game — Test Suite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f0e17;
+      --card-bg: #1a1932;
+      --text: #fffffe;
+      --text-muted: #72738c;
+      --pass: #2ecc71;
+      --fail: #e74c3c;
+      --warn: #f39c12;
+      --border: rgba(255,255,255,0.06);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 30px 20px;
+      min-height: 100vh;
+    }
+
+    .test-header {
+      max-width: 800px;
+      margin: 0 auto 30px;
+      text-align: center;
+    }
+
+    .test-header h1 {
+      font-size: 36px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #ff8906, #f25f4c);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    .test-header .summary {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .stats {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+
+    .stat-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 24px;
+      text-align: center;
+      min-width: 100px;
+    }
+
+    .stat-box .stat-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .stat-box .stat-value {
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    .stat-value.pass { color: var(--pass); }
+    .stat-value.fail { color: var(--fail); }
+    .stat-value.total { color: var(--text); }
+
+    .test-suite {
+      max-width: 800px;
+      margin: 0 auto 20px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .suite-header {
+      padding: 14px 20px;
+      font-size: 16px;
+      font-weight: 700;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .suite-header:hover {
+      background: rgba(255,255,255,0.02);
+    }
+
+    .suite-badge {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    .suite-badge.pass { background: rgba(46,204,113,0.15); color: var(--pass); }
+    .suite-badge.fail { background: rgba(231,76,60,0.15); color: var(--fail); }
+
+    .test-case {
+      padding: 10px 20px 10px 36px;
+      font-size: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .test-case:last-child { border-bottom: none; }
+
+    .test-icon { font-size: 14px; flex-shrink: 0; }
+    .test-icon.pass { color: var(--pass); }
+    .test-icon.fail { color: var(--fail); }
+
+    .test-name { flex: 1; color: var(--text-muted); }
+    .test-case.pass .test-name { color: rgba(255,255,255,0.7); }
+    .test-case.fail .test-name { color: var(--fail); }
+
+    .test-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .error-detail {
+      padding: 8px 20px 12px 56px;
+      font-size: 12px;
+      color: var(--fail);
+      font-family: 'Courier New', monospace;
+      background: rgba(231,76,60,0.05);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .running { animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  </style>
+</head>
+<body>
+  <div class="test-header">
+    <h1>2048 Test Suite</h1>
+    <p class="summary" id="status">Running tests...</p>
+    <div class="stats">
+      <div class="stat-box">
+        <div class="stat-label">Total</div>
+        <div class="stat-value total" id="stat-total">-</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Passed</div>
+        <div class="stat-value pass" id="stat-passed">-</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Failed</div>
+        <div class="stat-value fail" id="stat-failed">-</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Time</div>
+        <div class="stat-value total" id="stat-time">-</div>
+      </div>
+    </div>
+  </div>
+  <div id="results"></div>
+
+  <script type="module">
+    // ====================================================================
+    // Minimal Test Framework (describe/it/expect) for browser ES modules
+    // ====================================================================
+
+    const suites = [];
+    let currentSuite = null;
+
+    function describe(name, fn) {
+      const suite = { name, tests: [], beforeEachFn: null };
+      const parentSuite = currentSuite;
+      currentSuite = suite;
+      fn();
+      currentSuite = parentSuite;
+      if (parentSuite) {
+        // Nested describe — flatten with prefix
+        suite.tests.forEach(test => {
+          test.name = `${name} > ${test.name}`;
+          parentSuite.tests.push(test);
+        });
+      } else {
+        suites.push(suite);
+      }
+    }
+
+    function beforeEach(fn) {
+      if (currentSuite) currentSuite.beforeEachFn = fn;
+    }
+
+    function it(name, fn) {
+      if (currentSuite) {
+        currentSuite.tests.push({ name, fn, beforeEachFn: currentSuite.beforeEachFn });
+      }
+    }
+
+    function expect(actual) {
+      return {
+        toBe(expected) {
+          if (actual !== expected) {
+            throw new Error(`Expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+          }
+        },
+        toBeNull() {
+          if (actual !== null) {
+            throw new Error(`Expected null, got ${JSON.stringify(actual)}`);
+          }
+        },
+        toBeUndefined() {
+          if (actual !== undefined) {
+            throw new Error(`Expected undefined, got ${JSON.stringify(actual)}`);
+          }
+        },
+        not: {
+          toBeNull() {
+            if (actual === null) {
+              throw new Error(`Expected non-null value, got null`);
+            }
+          },
+          toBe(expected) {
+            if (actual === expected) {
+              throw new Error(`Expected value NOT to be ${JSON.stringify(expected)}`);
+            }
+          }
+        },
+        toContain(item) {
+          if (!Array.isArray(actual) || !actual.includes(item)) {
+            throw new Error(`Expected [${actual}] to contain ${item}`);
+          }
+        },
+        toThrow(message) {
+          let threw = false;
+          let thrownMessage = '';
+          try {
+            actual();
+          } catch (e) {
+            threw = true;
+            thrownMessage = e.message;
+          }
+          if (!threw) {
+            throw new Error(`Expected function to throw, but it didn't`);
+          }
+          if (message && !thrownMessage.includes(message)) {
+            throw new Error(`Expected error message to include "${message}", got "${thrownMessage}"`);
+          }
+        },
+      };
+    }
+
+    // ====================================================================
+    // Import tests
+    // ====================================================================
+
+    import { Grid } from './src/engine/grid.js';
+    import { Tile, resetTileIdCounter } from './src/engine/tile.js';
+    import { GameEngine } from './src/engine/gameEngine.js';
+
+    // --- Test Helpers ---
+
+    function createSeededRandom(values) {
+      let index = 0;
+      return () => {
+        const value = values[index % values.length];
+        index++;
+        return value;
+      };
+    }
+
+    function setGridState(engine, gridValues) {
+      const size = gridValues.length;
+      for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size; col++) {
+          const value = gridValues[row][col];
+          if (value !== null && value !== 0) {
+            engine.grid.setCell(row, col, Tile.create(value, row, col));
+          } else {
+            engine.grid.setCell(row, col, null);
+          }
+        }
+      }
+    }
+
+    function getGridValues(engine) {
+      const values = [];
+      for (let row = 0; row < engine.size; row++) {
+        values[row] = [];
+        for (let col = 0; col < engine.size; col++) {
+          const tile = engine.grid.getCell(row, col);
+          values[row][col] = tile ? tile.value : null;
+        }
+      }
+      return values;
+    }
+
+    function countTiles(engine) {
+      let count = 0;
+      engine.grid.eachCell((r, c, tile) => { if (tile) count++; });
+      return count;
+    }
+
+    // ====================================================================
+    // Grid Tests
+    // ====================================================================
+
+    describe('Grid', () => {
+      beforeEach(() => resetTileIdCounter());
+
+      describe('Construction', () => {
+        it('creates a grid of the correct size', () => {
+          const grid = new Grid(4);
+          expect(grid.size).toBe(4);
+          expect(grid.cells.length).toBe(4);
+        });
+
+        it('creates grids of different sizes', () => {
+          [3, 4, 6, 8].forEach(size => {
+            const grid = new Grid(size);
+            expect(grid.size).toBe(size);
+          });
+        });
+
+        it('initializes all cells to null', () => {
+          const grid = new Grid(4);
+          grid.eachCell((row, col, tile) => {
+            expect(tile).toBeNull();
+          });
+        });
+      });
+
+      describe('Cell access', () => {
+        it('sets and gets a cell', () => {
+          const grid = new Grid(4);
+          const tile = Tile.create(2, 1, 2);
+          grid.setCell(1, 2, tile);
+          expect(grid.getCell(1, 2)).toBe(tile);
+          expect(grid.getCell(1, 2).value).toBe(2);
+        });
+
+        it('returns undefined for out-of-bounds access', () => {
+          const grid = new Grid(4);
+          expect(grid.getCell(-1, 0)).toBeUndefined();
+          expect(grid.getCell(4, 0)).toBeUndefined();
+        });
+
+        it('returns null for empty cells', () => {
+          const grid = new Grid(4);
+          expect(grid.getCell(0, 0)).toBeNull();
+        });
+      });
+
+      describe('Available cells', () => {
+        it('reports all cells as available on empty grid', () => {
+          const grid = new Grid(4);
+          expect(grid.getAvailableCells().length).toBe(16);
+        });
+
+        it('excludes occupied cells', () => {
+          const grid = new Grid(4);
+          grid.setCell(0, 0, Tile.create(2, 0, 0));
+          grid.setCell(1, 1, Tile.create(4, 1, 1));
+          expect(grid.getAvailableCells().length).toBe(14);
+        });
+
+        it('reports no available cells when full', () => {
+          const grid = new Grid(3);
+          for (let r = 0; r < 3; r++)
+            for (let c = 0; c < 3; c++)
+              grid.setCell(r, c, Tile.create(2, r, c));
+          expect(grid.hasAvailableCells()).toBe(false);
+        });
+      });
+
+      describe('Clone', () => {
+        it('creates a deep copy', () => {
+          const grid = new Grid(4);
+          grid.setCell(0, 0, Tile.create(2, 0, 0));
+          const clone = grid.clone();
+          clone.setCell(0, 0, null);
+          expect(grid.getCell(0, 0).value).toBe(2);
+        });
+      });
+
+      describe('Serialization', () => {
+        it('serializes and deserializes correctly', () => {
+          const grid = new Grid(4);
+          grid.setCell(0, 0, Tile.create(2, 0, 0));
+          grid.setCell(3, 3, Tile.create(16, 3, 3));
+          const restored = Grid.deserialize(grid.serialize());
+          expect(restored.getCell(0, 0).value).toBe(2);
+          expect(restored.getCell(3, 3).value).toBe(16);
+          expect(restored.getCell(1, 1)).toBeNull();
+        });
+      });
+    });
+
+    // ====================================================================
+    // GameEngine Tests
+    // ====================================================================
+
+    describe('GameEngine', () => {
+      beforeEach(() => resetTileIdCounter());
+
+      describe('Grid initialization', () => {
+        it('creates grid with correct default size (4x4)', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.1, 0.5, 0.2, 0.7]));
+          engine.initialize();
+          expect(engine.size).toBe(4);
+          expect(engine.grid.size).toBe(4);
+        });
+
+        it('creates grids of all supported sizes', () => {
+          [3, 4, 6, 8].forEach(size => {
+            const engine = new GameEngine(size, createSeededRandom([0.1, 0.5, 0.2, 0.7]));
+            engine.initialize();
+            expect(engine.grid.size).toBe(size);
+          });
+        });
+
+        it('spawns exactly 2 tiles on initialization', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.1, 0.5, 0.2, 0.7]));
+          engine.initialize();
+          expect(countTiles(engine)).toBe(2);
+        });
+
+        it('spawned tiles are 2 or 4', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.1, 0.5, 0.2, 0.7]));
+          engine.initialize();
+          engine.grid.eachCell((r, c, tile) => {
+            if (tile) expect([2, 4]).toContain(tile.value);
+          });
+        });
+
+        it('initializes score to 0', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.1, 0.5, 0.2, 0.7]));
+          engine.initialize();
+          expect(engine.score).toBe(0);
+        });
+      });
+
+      describe('Tile movement - moveLeft', () => {
+        it('slides tiles to the left', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.99, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [null, null, null, 2],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          engine.move('left');
+          expect(engine.grid.getCell(0, 0).value).toBe(2);
+        });
+
+        it('merges equal adjacent tiles', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.99, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, 2, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          engine.move('left');
+          expect(engine.grid.getCell(0, 0).value).toBe(4);
+        });
+
+        it('no double merge — [2,2,2,2] → [4,4,_,_]', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.99, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, 2, 2, 2],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          engine.move('left');
+          const row = getGridValues(engine)[0];
+          expect(row[0]).toBe(4);
+          expect(row[1]).toBe(4);
+        });
+
+        it('[2,2,4,4] → [4,8,_,_]', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.99, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, 2, 4, 4],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          engine.move('left');
+          const row = getGridValues(engine)[0];
+          expect(row[0]).toBe(4);
+          expect(row[1]).toBe(8);
+        });
+
+        it('returns moved=false when no move possible', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.99, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, 4, 8, 16],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          const result = engine.move('left');
+          expect(result.moved).toBe(false);
+        });
+      });
+
+      describe('Tile movement - moveRight', () => {
+        it('slides tiles to the right', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.0, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          engine.move('right');
+          expect(engine.grid.getCell(0, 3).value).toBe(2);
+        });
+
+        it('merges tiles correctly', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.0, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [null, null, 2, 2],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          engine.move('right');
+          expect(engine.grid.getCell(0, 3).value).toBe(4);
+        });
+
+        it('[4,4,2,2] → [_,_,8,4]', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.0, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [4, 4, 2, 2],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          engine.move('right');
+          const row = getGridValues(engine)[0];
+          expect(row[2]).toBe(8);
+          expect(row[3]).toBe(4);
+        });
+      });
+
+      describe('Tile movement - moveUp', () => {
+        it('slides tiles upward', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.0, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+            [2, null, null, null],
+          ]);
+          engine.move('up');
+          expect(engine.grid.getCell(0, 0).value).toBe(2);
+        });
+
+        it('merges tiles correctly', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.0, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, null, null, null],
+            [2, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          engine.move('up');
+          expect(engine.grid.getCell(0, 0).value).toBe(4);
+        });
+
+        it('no double merge vertically — [2,2,2,2] col → [4,4,_,_]', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.99, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, null, null, null],
+            [2, null, null, null],
+            [2, null, null, null],
+            [2, null, null, null],
+          ]);
+          engine.move('up');
+          expect(engine.grid.getCell(0, 0).value).toBe(4);
+          expect(engine.grid.getCell(1, 0).value).toBe(4);
+        });
+      });
+
+      describe('Tile movement - moveDown', () => {
+        it('slides tiles downward', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.0, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          engine.move('down');
+          expect(engine.grid.getCell(3, 0).value).toBe(2);
+        });
+
+        it('merges tiles correctly', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.0, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [null, null, null, null],
+            [null, null, null, null],
+            [2, null, null, null],
+            [2, null, null, null],
+          ]);
+          engine.move('down');
+          expect(engine.grid.getCell(3, 0).value).toBe(4);
+        });
+      });
+
+      describe('Score calculation', () => {
+        it('adds merged tile value to score', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.99, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, 2, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          const result = engine.move('left');
+          expect(result.score).toBe(4);
+          expect(engine.score).toBe(4);
+        });
+
+        it('accumulates score across moves', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.99, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, 2, 4, 4],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          engine.move('left');
+          expect(engine.score).toBe(12);
+
+          setGridState(engine, [
+            [4, 4, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          engine.move('left');
+          expect(engine.score).toBe(20);
+        });
+
+        it('scores correctly for multiple merges in one move', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.99, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [4, 4, null, null],
+            [8, 8, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          const result = engine.move('left');
+          expect(result.score).toBe(24);
+        });
+      });
+
+      describe('Win detection', () => {
+        it('detects 2048 tile as win', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.99, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [1024, 1024, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          engine.move('left');
+          expect(engine.won).toBe(true);
+        });
+
+        it('does not false-positive on lower values', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.99, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [512, 512, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          engine.move('left');
+          expect(engine.won).toBe(false);
+        });
+
+        it('checkWinCondition returns true when 2048 exists', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.1, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2048, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          expect(engine.checkWinCondition()).toBe(true);
+        });
+
+        it('checkWinCondition returns false with no 2048', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.1, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [1024, 512, 256, 128],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          expect(engine.checkWinCondition()).toBe(false);
+        });
+      });
+
+      describe('Game over detection', () => {
+        it('detects no valid moves remaining', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.0, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, 4, 2, 4],
+            [4, 2, 4, 2],
+            [2, 4, 2, 4],
+            [4, 2, 4, 2],
+          ]);
+          expect(engine.isMovePossible()).toBe(false);
+        });
+
+        it('not over if empty cells exist', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.1, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, 4, 2, 4],
+            [4, 2, 4, 2],
+            [2, 4, 2, 4],
+            [4, 2, 4, null],
+          ]);
+          expect(engine.isMovePossible()).toBe(true);
+        });
+
+        it('not over if adjacent tiles can merge', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.1, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, 4, 2, 4],
+            [4, 2, 4, 2],
+            [2, 4, 2, 4],
+            [4, 2, 4, 4],
+          ]);
+          expect(engine.isMovePossible()).toBe(true);
+        });
+
+        it('detects game over on 3x3 grid', () => {
+          const engine = new GameEngine(3, createSeededRandom([0.0, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, 4, 2],
+            [4, 2, 4],
+            [2, 4, 2],
+          ]);
+          expect(engine.isMovePossible()).toBe(false);
+        });
+      });
+
+      describe('Random tile spawn', () => {
+        it('spawns tile only after valid move', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.1, 0.5, 0.2, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [null, null, null, 2],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          const result = engine.move('left');
+          expect(result.moved).toBe(true);
+          expect(result.newTile).not.toBeNull();
+        });
+
+        it('does not spawn if move is invalid', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.1, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          const count = countTiles(engine);
+          const result = engine.move('left');
+          expect(result.moved).toBe(false);
+          expect(result.newTile).toBeNull();
+          expect(countTiles(engine)).toBe(count);
+        });
+
+        it('new tile appears on an empty cell', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.0, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [null, null, null, 4],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          const result = engine.move('left');
+          const { row, col } = result.newTile;
+          expect(engine.grid.getCell(row, col)).not.toBeNull();
+        });
+      });
+
+      describe('State serialization', () => {
+        it('serializes and restores game state', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.1, 0.5, 0.2, 0.7]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, 4, 8, 16],
+            [null, null, null, null],
+            [null, null, null, null],
+            [null, null, null, null],
+          ]);
+          engine.score = 42;
+          const state = engine.getState();
+          const newEngine = new GameEngine(4);
+          newEngine.loadState(state);
+          expect(newEngine.score).toBe(42);
+          expect(newEngine.grid.getCell(0, 0).value).toBe(2);
+          expect(newEngine.grid.getCell(0, 3).value).toBe(16);
+        });
+      });
+
+      describe('Edge cases', () => {
+        it('throws on invalid direction', () => {
+          const engine = new GameEngine(4, createSeededRandom([0.1, 0.5, 0.2, 0.7]));
+          engine.initialize();
+          expect(() => engine.move('diagonal')).toThrow('Invalid direction');
+        });
+
+        it('handles 3x3 grid correctly', () => {
+          const engine = new GameEngine(3, createSeededRandom([0.0, 0.5, 0.1, 0.5]));
+          engine.initialize();
+          setGridState(engine, [
+            [2, 2, null],
+            [null, null, null],
+            [null, null, null],
+          ]);
+          engine.move('left');
+          expect(engine.grid.getCell(0, 0).value).toBe(4);
+        });
+
+        it('handles 8x8 grid correctly', () => {
+          const engine = new GameEngine(8, createSeededRandom([0.0, 0.5, 0.1, 0.5]));
+          engine.initialize();
+          expect(engine.grid.size).toBe(8);
+          expect(countTiles(engine)).toBe(2);
+        });
+      });
+    });
+
+    // ====================================================================
+    // Test Runner
+    // ====================================================================
+
+    async function runAllTests() {
+      const resultsContainer = document.getElementById('results');
+      const startTime = performance.now();
+      let totalPassed = 0;
+      let totalFailed = 0;
+      let totalTests = 0;
+
+      for (const suite of suites) {
+        const suiteEl = document.createElement('div');
+        suiteEl.className = 'test-suite';
+
+        const suiteHeader = document.createElement('div');
+        suiteHeader.className = 'suite-header';
+        suiteHeader.textContent = suite.name;
+
+        const testsContainer = document.createElement('div');
+
+        let suitePassed = 0;
+        let suiteFailed = 0;
+
+        for (const test of suite.tests) {
+          totalTests++;
+          const testStart = performance.now();
+          let passed = true;
+          let errorMessage = '';
+
+          try {
+            if (test.beforeEachFn) test.beforeEachFn();
+            test.fn();
+          } catch (e) {
+            passed = false;
+            errorMessage = e.message || String(e);
+          }
+
+          const testTime = (performance.now() - testStart).toFixed(1);
+
+          if (passed) {
+            suitePassed++;
+            totalPassed++;
+          } else {
+            suiteFailed++;
+            totalFailed++;
+          }
+
+          const testEl = document.createElement('div');
+          testEl.className = `test-case ${passed ? 'pass' : 'fail'}`;
+          testEl.innerHTML = `
+            <span class="test-icon ${passed ? 'pass' : 'fail'}">${passed ? '✓' : '✗'}</span>
+            <span class="test-name">${test.name}</span>
+            <span class="test-time">${testTime}ms</span>
+          `;
+          testsContainer.appendChild(testEl);
+
+          if (!passed) {
+            const errorEl = document.createElement('div');
+            errorEl.className = 'error-detail';
+            errorEl.textContent = errorMessage;
+            testsContainer.appendChild(errorEl);
+          }
+        }
+
+        const badge = document.createElement('span');
+        badge.className = `suite-badge ${suiteFailed > 0 ? 'fail' : 'pass'}`;
+        badge.textContent = suiteFailed > 0 ? `${suiteFailed} failed` : `${suitePassed} passed`;
+        suiteHeader.appendChild(badge);
+
+        suiteEl.appendChild(suiteHeader);
+        suiteEl.appendChild(testsContainer);
+        resultsContainer.appendChild(suiteEl);
+      }
+
+      const totalTime = (performance.now() - startTime).toFixed(0);
+
+      document.getElementById('stat-total').textContent = totalTests;
+      document.getElementById('stat-passed').textContent = totalPassed;
+      document.getElementById('stat-failed').textContent = totalFailed;
+      document.getElementById('stat-time').textContent = `${totalTime}ms`;
+
+      const status = document.getElementById('status');
+      if (totalFailed === 0) {
+        status.textContent = `✅ All ${totalTests} tests passed in ${totalTime}ms`;
+        status.style.color = '#2ecc71';
+      } else {
+        status.textContent = `❌ ${totalFailed} of ${totalTests} tests failed`;
+        status.style.color = '#e74c3c';
+      }
+    }
+
+    runAllTests();
+  </script>
+</body>
+</html>
